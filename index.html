@@ -117,6 +117,17 @@
         text-align: center;
       }
 
+      .promo-note {
+        margin: 10px 16px 0;
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: rgba(var(--accent-2-rgb), 0.12);
+        border: 1px solid rgba(var(--accent-2-rgb), 0.35);
+        color: var(--text);
+        font-weight: 700;
+        text-align: center;
+      }
+
       .brand {
         display: flex;
         align-items: center;
@@ -412,6 +423,7 @@
         background: #ffffff;
         border-radius: 18px;
         border: 1px solid var(--border);
+        cursor: zoom-in;
       }
 
       .modal-thumbs {
@@ -499,6 +511,47 @@
       .qty-control span {
         min-width: 22px;
         text-align: center;
+      }
+
+      .lightbox-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.85);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s ease;
+        z-index: 70;
+      }
+
+      .lightbox-overlay.open {
+        opacity: 1;
+        pointer-events: auto;
+      }
+
+      .lightbox-image {
+        max-width: 92vw;
+        max-height: 88vh;
+        object-fit: contain;
+        border-radius: 18px;
+        background: #ffffff;
+        box-shadow: var(--shadow);
+      }
+
+      .lightbox-close {
+        position: absolute;
+        top: 18px;
+        right: 18px;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        background: rgba(0, 0, 0, 0.6);
+        color: #ffffff;
+        font-size: 1.2rem;
+        cursor: pointer;
       }
 
       .cart-panel {
@@ -845,6 +898,7 @@
       </div>
     </header>
     <div class="delivery-note" role="note">Entrega grátis em: São Gonçalo do Pará - MG</div>
+    <div class="promo-note" role="note">Desconto de 2% a partir de 3 itens no carrinho</div>
 
     <main class="content" id="catalogo">
       <section>
@@ -997,6 +1051,11 @@
       </div>
     </div>
 
+    <div class="lightbox-overlay" id="imageLightbox" aria-hidden="true">
+      <button class="lightbox-close" id="lightboxClose" aria-label="Fechar imagem">×</button>
+      <img class="lightbox-image" id="lightboxImage" alt="" />
+    </div>
+
     <div class="cart-overlay" id="cartOverlay" aria-hidden="true"></div>
     <button class="cart-fab" id="cartFab" data-bump aria-label="Abrir carrinho">
       Carrinho (0)
@@ -1143,6 +1202,9 @@
       const modalDec = document.getElementById("modalDec");
       const modalInc = document.getElementById("modalInc");
       const modalAddBtn = document.getElementById("modalAddBtn");
+      const imageLightbox = document.getElementById("imageLightbox");
+      const lightboxImage = document.getElementById("lightboxImage");
+      const lightboxClose = document.getElementById("lightboxClose");
 
       let activeProduct = null;
       let activeImages = [];
@@ -1398,6 +1460,20 @@
         activeImages = [];
       };
 
+      const openLightbox = (src, alt) => {
+        lightboxImage.src = src;
+        lightboxImage.alt = alt || "Imagem ampliada do produto";
+        imageLightbox.classList.add("open");
+        imageLightbox.setAttribute("aria-hidden", "false");
+      };
+
+      const closeLightbox = () => {
+        imageLightbox.classList.remove("open");
+        imageLightbox.setAttribute("aria-hidden", "true");
+        lightboxImage.src = "";
+        lightboxImage.alt = "";
+      };
+
       const updateFilters = () => {
         const term = searchInput.value.trim().toLowerCase();
         const category = categoryFilter.value;
@@ -1622,6 +1698,11 @@
         thumb.classList.add("active");
       });
 
+      modalMainImage.addEventListener("click", () => {
+        if (!modalMainImage.src) return;
+        openLightbox(modalMainImage.src, modalMainImage.alt);
+      });
+
       modalInc.addEventListener("click", () => {
         modalQtyValue += 1;
         modalQty.textContent = modalQtyValue;
@@ -1642,6 +1723,13 @@
       productModalOverlay.addEventListener("click", (event) => {
         if (event.target === productModalOverlay) {
           closeModal();
+        }
+      });
+
+      lightboxClose.addEventListener("click", closeLightbox);
+      imageLightbox.addEventListener("click", (event) => {
+        if (event.target === imageLightbox) {
+          closeLightbox();
         }
       });
 
@@ -1700,8 +1788,14 @@
         toggleCart(false);
       });
       document.addEventListener("keydown", (event) => {
-        if (event.key === "Escape" && productModalOverlay.classList.contains("open")) {
-          closeModal();
+        if (event.key === "Escape") {
+          if (imageLightbox.classList.contains("open")) {
+            closeLightbox();
+            return;
+          }
+          if (productModalOverlay.classList.contains("open")) {
+            closeModal();
+          }
         }
       });
 
