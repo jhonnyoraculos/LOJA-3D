@@ -200,8 +200,9 @@
 
       .product-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(240px, 360px));
         gap: 16px;
+        justify-content: center;
       }
 
       .product-card {
@@ -228,7 +229,7 @@
 
       .product-image img {
         width: 100%;
-        height: 160px;
+        height: 220px;
         object-fit: contain;
         background: #ffffff;
       }
@@ -1025,14 +1026,26 @@
         return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
       };
 
-      const createGallery = (title) => [
-        createPlaceholderSvg(title, "Vista frontal"),
-        createPlaceholderSvg(title, "Vista lateral"),
-        createPlaceholderSvg(title, "Detalhe"),
-      ];
-
       // Edite images, descriptionLong e specs para ajustar a galeria e o texto do modal.
       const products = [
+        {
+          id: "personalizados",
+          name: "Objetos Personalizados",
+          priceText: "A combinar",
+          description:
+            "Você escolhe o modelo em outro lugar e me envia para eu produzir.",
+          descriptionLong:
+            "Produção sob medida: você escolhe o objeto, me envia a referência e combinamos o formato final e o valor.",
+          category: "Personalizados",
+          customizable: true,
+          pinned: true,
+          specs: {
+            dimensoes: "A combinar",
+            tempo: "A combinar",
+          },
+          images: [createPlaceholderSvg("Personalizados", "Sob medida")],
+          image: createPlaceholderSvg("Personalizados", "Sob medida"),
+        },
         {
           id: "sup-xbox",
           name: "Suporte de Controle de Xbox",
@@ -1113,6 +1126,18 @@
           currency: CURRENCY,
         }).format(value);
 
+      const isFlexiblePrice = (product) =>
+        typeof product.price !== "number" || Number.isNaN(product.price);
+
+      const formatProductPrice = (product) =>
+        product.priceText || (isFlexiblePrice(product) ? "A combinar" : formatCurrency(product.price));
+
+      const orderProducts = (list) => {
+        const pinned = list.filter((product) => product.pinned);
+        const rest = list.filter((product) => !product.pinned);
+        return [...pinned, ...rest];
+      };
+
       const saveState = () => {
         localStorage.setItem(storageKeys.cart, JSON.stringify(state.cart));
         localStorage.setItem(storageKeys.name, state.name);
@@ -1169,7 +1194,8 @@
           return;
         }
         noResults.hidden = true;
-        productGrid.innerHTML = list
+        const ordered = orderProducts(list);
+        productGrid.innerHTML = ordered
           .map(
             (product) => `
           <article class="product-card" data-id="${product.id}" tabindex="0" aria-label="Ver detalhes de ${product.name}">
@@ -1188,7 +1214,7 @@
               <h3>${product.name}</h3>
               <p class="product-desc">${product.description}</p>
               <div class="product-meta">
-                <span class="price">${formatCurrency(product.price)}</span>
+                <span class="price">${formatProductPrice(product)}</span>
                 <div class="product-actions">
                   <button class="btn btn-ghost" data-details="${
                     product.id
@@ -1239,12 +1265,20 @@
 
         cartEmpty.style.display = "none";
         let total = 0;
+        let hasFlexible = false;
         cartItems.innerHTML = entries
           .map(([id, qty]) => {
             const product = products.find((item) => item.id === id);
             if (!product) return "";
-            const subtotal = product.price * qty;
-            total += subtotal;
+            const flexible = isFlexiblePrice(product);
+            const subtotal = flexible ? 0 : product.price * qty;
+            const unitLabel = flexible ? "A combinar" : formatCurrency(product.price);
+            const subtotalLabel = flexible ? "A combinar" : formatCurrency(subtotal);
+            if (flexible) {
+              hasFlexible = true;
+            } else {
+              total += subtotal;
+            }
             return `
             <div class="cart-item">
               <img src="${product.image}" alt="Imagem do produto ${product.name}" />
@@ -1252,11 +1286,9 @@
                 <div class="cart-item-top">
                   <div>
                     <h4>${product.name}</h4>
-                    <div class="cart-item-price">Unitário: ${formatCurrency(
-                      product.price
-                    )}</div>
+                    <div class="cart-item-price">Unitário: ${unitLabel}</div>
                   </div>
-                  <div class="cart-item-subtotal">${formatCurrency(subtotal)}</div>
+                  <div class="cart-item-subtotal">${subtotalLabel}</div>
                 </div>
                 <div class="cart-item-actions">
                   <button class="btn-icon" data-dec="${product.id}" aria-label="Diminuir ${product.name}">-</button>
@@ -1269,14 +1301,18 @@
           })
           .join("");
 
-        cartTotal.textContent = formatCurrency(total);
+        let totalLabel = formatCurrency(total);
+        if (hasFlexible) {
+          totalLabel = total > 0 ? `${totalLabel} + a combinar` : "A combinar";
+        }
+        cartTotal.textContent = totalLabel;
         finalizeBtn.disabled = false;
         copyBtn.disabled = false;
       };
 
       const renderModal = (product) => {
         modalTitle.textContent = product.name;
-        modalPrice.textContent = formatCurrency(product.price);
+        modalPrice.textContent = formatProductPrice(product);
         modalDesc.textContent = product.descriptionLong || product.description;
         modalBadges.innerHTML = `
           <span class="badge">${product.category}</span>
@@ -1402,9 +1438,16 @@
         lines.push("");
         lines.push("Itens:");
         let total = 0;
+        let hasFlexible = false;
         entries.forEach(([id, qty]) => {
           const product = products.find((item) => item.id === id);
           if (!product) return;
+          const flexible = isFlexiblePrice(product);
+          if (flexible) {
+            hasFlexible = true;
+            lines.push(`- ${qty}x ${product.name} (A combinar)`);
+            return;
+          }
           const subtotal = product.price * qty;
           total += subtotal;
           lines.push(
@@ -1414,7 +1457,12 @@
           );
         });
         lines.push("");
-        lines.push(`Total: ${formatCurrency(total)}`);
+        if (hasFlexible) {
+          const totalLabel = total > 0 ? `${formatCurrency(total)} + a combinar` : "A combinar";
+          lines.push(`Total: ${totalLabel}`);
+        } else {
+          lines.push(`Total: ${formatCurrency(total)}`);
+        }
         if (notes) {
           lines.push(`Observações: ${notes}`);
         }
