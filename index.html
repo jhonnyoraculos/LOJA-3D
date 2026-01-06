@@ -753,6 +753,33 @@
         z-index: 14;
       }
 
+      .back-to-top {
+        position: fixed;
+        bottom: 88px;
+        right: 18px;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        border: none;
+        background: var(--accent-2);
+        color: #ffffff;
+        font-size: 1.2rem;
+        box-shadow: var(--shadow);
+        cursor: pointer;
+        display: none;
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(6px);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        z-index: 15;
+      }
+
+      .back-to-top.show {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+      }
+
       .toast {
         position: fixed;
         top: 90px;
@@ -829,6 +856,10 @@
       }
 
       @media (max-width: 959px) {
+        .topbar {
+          position: static;
+        }
+
         .modal {
           width: 94vw;
         }
@@ -860,6 +891,10 @@
         }
 
         .cart-fab {
+          display: block;
+        }
+
+        .back-to-top {
           display: block;
         }
 
@@ -1067,6 +1102,7 @@
     </div>
 
     <div class="cart-overlay" id="cartOverlay" aria-hidden="true"></div>
+    <button class="back-to-top" id="backToTop" aria-label="Voltar ao topo">&uarr;</button>
     <button class="cart-fab" id="cartFab" data-bump aria-label="Abrir carrinho">
       Carrinho (0)
     </button>
@@ -1328,6 +1364,7 @@
       const cartPanel = document.getElementById("cartPanel");
       const cartFab = document.getElementById("cartFab");
       const cartOverlay = document.getElementById("cartOverlay");
+      const backToTop = document.getElementById("backToTop");
       const closeCartBtn = document.getElementById("closeCart");
       const backToProductsBtn = document.getElementById("backToProducts");
       const productModalOverlay = document.getElementById("productModalOverlay");
@@ -1438,6 +1475,12 @@
         setTimeout(() => {
           toast.classList.remove("show");
         }, 2000);
+      };
+
+      const updateBackToTop = () => {
+        if (!backToTop) return;
+        const shouldShow = window.scrollY > 320;
+        backToTop.classList.toggle("show", shouldShow);
       };
 
       const bumpCart = () => {
@@ -2047,6 +2090,10 @@
       cartFab.addEventListener("click", () => toggleCart());
       cartOverlay.addEventListener("click", () => toggleCart(false));
       closeCartBtn.addEventListener("click", () => toggleCart(false));
+      backToTop.addEventListener("click", () => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+      window.addEventListener("scroll", updateBackToTop, { passive: true });
       backToProductsBtn.addEventListener("click", () => {
         document.getElementById("catalogo").scrollIntoView({ behavior: "smooth" });
         toggleCart(false);
@@ -2067,6 +2114,7 @@
       renderCatalog(products);
       loadState();
       renderCart();
+      updateBackToTop();
     </script>
   </body>
 </html>
