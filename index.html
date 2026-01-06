@@ -671,6 +671,11 @@
         font-size: 0.9rem;
       }
 
+      .discount-info {
+        font-size: 0.85rem;
+        color: var(--muted);
+      }
+
       .checkout {
         margin-top: 16px;
         display: flex;
@@ -899,7 +904,7 @@
       </div>
     </header>
     <div class="delivery-note" role="note">Entrega grátis em: São Gonçalo do Pará - MG</div>
-    <div class="promo-note" role="note">Desconto de 2% a partir de 3 itens no carrinho</div>
+    <div class="promo-note" role="note">Desconto progressivo: 2 itens = 2%, 3 itens = 5%, 6 itens = 7%</div>
 
     <main class="content" id="catalogo">
       <section id="featuredSection">
@@ -953,8 +958,10 @@
         <div class="cart-summary">
           <div>Total: <span id="cartTotal">R$ 0,00</span></div>
           <div class="discount-line" id="cartDiscount" hidden>
-            Desconto (2%): <span id="cartDiscountValue">R$ 0,00</span>
+            <span id="cartDiscountLabel">Desconto (2%): </span
+            ><span id="cartDiscountValue">R$ 0,00</span>
           </div>
+          <div class="discount-info" id="cartDiscountInfo" hidden></div>
           <div class="cart-footer-actions">
             <span>Itens: <strong data-cart-count>0</strong></span>
           </div>
@@ -1078,8 +1085,11 @@
       const WHATSAPP_PHONE = "37998726994";
       const BRAND_NAME = "ORÁCULOS 3D Print";
       const CURRENCY = "BRL";
-      const DISCOUNT_RATE = 0.02;
-      const DISCOUNT_MIN_ITEMS = 3;
+      const DISCOUNT_TIERS = [
+        { minItems: 2, rate: 0.02 },
+        { minItems: 3, rate: 0.05 },
+        { minItems: 6, rate: 0.07 },
+      ];
 
       const createPlaceholderSvg = (title, subtitle) => {
         const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
@@ -1303,7 +1313,9 @@
       const cartEmpty = document.getElementById("cartEmpty");
       const cartTotal = document.getElementById("cartTotal");
       const cartDiscount = document.getElementById("cartDiscount");
+      const cartDiscountLabel = document.getElementById("cartDiscountLabel");
       const cartDiscountValue = document.getElementById("cartDiscountValue");
+      const cartDiscountInfo = document.getElementById("cartDiscountInfo");
       const cartCountEls = document.querySelectorAll("[data-cart-count]");
       const clearCartBtn = document.getElementById("clearCart");
       const resetStorageBtn = document.getElementById("resetStorage");
@@ -1379,6 +1391,19 @@
         const rest = list.filter((product) => !product.pinned);
         return [...pinned, ...rest];
       };
+
+      const getDiscountRate = (count) => {
+        let rate = 0;
+        DISCOUNT_TIERS.forEach((tier) => {
+          if (count >= tier.minItems) {
+            rate = tier.rate;
+          }
+        });
+        return rate;
+      };
+
+      const getNextDiscountTier = (count) =>
+        DISCOUNT_TIERS.find((tier) => count < tier.minItems) || null;
 
       const saveState = () => {
         localStorage.setItem(storageKeys.cart, JSON.stringify(state.cart));
@@ -1518,6 +1543,7 @@
           cartEmpty.style.display = "flex";
           cartTotal.textContent = formatCurrency(0);
           cartDiscount.hidden = true;
+          cartDiscountInfo.hidden = true;
           finalizeBtn.disabled = true;
           copyBtn.disabled = true;
           return;
@@ -1563,9 +1589,9 @@
           })
           .join("");
 
-        const discountEligible =
-          count >= DISCOUNT_MIN_ITEMS && total > 0;
-        const discount = discountEligible ? total * DISCOUNT_RATE : 0;
+        const discountRate = getDiscountRate(count);
+        const discountEligible = discountRate > 0 && total > 0;
+        const discount = discountEligible ? total * discountRate : 0;
         const totalAfterDiscount = total - discount;
         let totalLabel = formatCurrency(totalAfterDiscount);
         if (hasFlexible) {
@@ -1575,9 +1601,25 @@
         cartTotal.textContent = totalLabel;
         if (discountEligible) {
           cartDiscountValue.textContent = `-${formatCurrency(discount)}`;
+          cartDiscountLabel.textContent = `Desconto (${Math.round(discountRate * 100)}%): `;
           cartDiscount.hidden = false;
         } else {
           cartDiscount.hidden = true;
+        }
+        const nextTier = getNextDiscountTier(count);
+        if (count < 2) {
+          cartDiscountInfo.textContent = "Condição: a partir de 2 itens, 2% de desconto.";
+          cartDiscountInfo.hidden = false;
+        } else if (discountEligible && nextTier) {
+          cartDiscountInfo.textContent = `Condição: a partir de ${nextTier.minItems} itens, ${Math.round(
+            nextTier.rate * 100
+          )}% de desconto.`;
+          cartDiscountInfo.hidden = false;
+        } else if (discountEligible) {
+          cartDiscountInfo.textContent = "Condição: maior desconto já aplicado.";
+          cartDiscountInfo.hidden = false;
+        } else {
+          cartDiscountInfo.hidden = true;
         }
         finalizeBtn.disabled = false;
         copyBtn.disabled = false;
@@ -1779,11 +1821,14 @@
         });
         lines.push("");
         const itemCount = getCartCount();
-        const discountEligible = itemCount >= DISCOUNT_MIN_ITEMS && total > 0;
-        const discount = discountEligible ? total * DISCOUNT_RATE : 0;
+        const discountRate = getDiscountRate(itemCount);
+        const discountEligible = discountRate > 0 && total > 0;
+        const discount = discountEligible ? total * discountRate : 0;
         const totalAfterDiscount = total - discount;
         if (discountEligible) {
-          lines.push(`Desconto (${Math.round(DISCOUNT_RATE * 100)}%): -${formatCurrency(discount)}`);
+          lines.push(
+            `Desconto (${Math.round(discountRate * 100)}%): -${formatCurrency(discount)}`
+          );
         }
         if (hasFlexible) {
           const totalLabel =
