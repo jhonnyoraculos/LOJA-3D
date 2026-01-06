@@ -902,8 +902,12 @@
     <div class="promo-note" role="note">Desconto de 2% a partir de 3 itens no carrinho</div>
 
     <main class="content" id="catalogo">
-      <section>
+      <section id="featuredSection">
         <div class="section-title">Destaques do catálogo</div>
+        <div id="featuredGrid" class="product-grid"></div>
+      </section>
+      <section>
+        <div class="section-title">Catálogo completo</div>
         <div id="productGrid" class="product-grid"></div>
         <div id="noResults" class="no-results" hidden>
           Nenhum produto encontrado. Ajuste a busca ou o filtro.
@@ -1123,9 +1127,11 @@
             "Suporte 3D para controle de Xbox, com encaixe seguro e base estável para deixar o setup organizado.",
           category: "Suportes",
           customizable: false,
+          featured: true,
+          featuredRank: 1,
           specs: {
             dimensoes: "A confirmar",
-            tempo: "A confirmar",
+            tempo: "2h 30m",
           },
           images: [
             "SUPORTE XBOX/1.jpeg",
@@ -1144,6 +1150,8 @@
             "Placa decorativa da Fórmula 1 com base de apoio. Ideal para mesas, prateleiras e setups.",
           category: "Decoração",
           customizable: false,
+          featured: true,
+          featuredRank: 4,
           specs: {
             dimensoes: "16 x 5 x 8 cm (aprox.)",
             tempo: "A confirmar",
@@ -1161,6 +1169,8 @@
           category: "Suportes",
           customizable: false,
           colors: ["Preto", "Branco"],
+          featured: true,
+          featuredRank: 5,
           specs: {
             dimensoes: "16 x 5 x 8 cm (aprox.)",
             tempo: "A confirmar",
@@ -1182,6 +1192,8 @@
             "Suporte decorativo para celular em formato de gatinho. Ideal para mesas e criados-mudos.",
           category: "Suportes",
           customizable: false,
+          featured: true,
+          featuredRank: 3,
           specs: {
             dimensoes: "A confirmar",
             tempo: "2h",
@@ -1203,6 +1215,8 @@
             "Suporte moderno para celular com design ondulado, pensado para destaque na decoração.",
           category: "Suportes",
           customizable: false,
+          featured: true,
+          featuredRank: 6,
           specs: {
             dimensoes: "A confirmar",
             tempo: "3h 30m",
@@ -1247,9 +1261,11 @@
             "Suporte 3D para controle de PS5, com encaixe seguro e base estável para deixar o setup organizado.",
           category: "Suportes",
           customizable: false,
+          featured: true,
+          featuredRank: 2,
           specs: {
             dimensoes: "A confirmar",
-            tempo: "A confirmar",
+            tempo: "2h 30m",
           },
           images: [
             "SUPORTE PS5/1.jpeg",
@@ -1274,6 +1290,9 @@
         notes: "",
       };
 
+      const catalogContainer = document.getElementById("catalogo");
+      const featuredSection = document.getElementById("featuredSection");
+      const featuredGrid = document.getElementById("featuredGrid");
       const productGrid = document.getElementById("productGrid");
       const noResults = document.getElementById("noResults");
       const searchInput = document.getElementById("searchInput");
@@ -1416,15 +1435,8 @@
           return sum;
         }, 0);
 
-      const renderProducts = (list) => {
-        if (list.length === 0) {
-          productGrid.innerHTML = "";
-          noResults.hidden = false;
-          return;
-        }
-        noResults.hidden = true;
-        const ordered = orderProducts(list);
-        productGrid.innerHTML = ordered
+      const renderProductCards = (list) =>
+        list
           .map(
             (product) => `
           <article class="product-card" data-id="${product.id}" tabindex="0" aria-label="Ver detalhes de ${product.name}">
@@ -1462,6 +1474,22 @@
         `
           )
           .join("");
+
+      const orderFeatured = (list) =>
+        list
+          .slice()
+          .sort(
+            (a, b) =>
+              (a.featuredRank ?? 999) - (b.featuredRank ?? 999)
+          );
+
+      const renderCatalog = (list) => {
+        const featured = orderFeatured(list.filter((product) => product.featured));
+        const normal = orderProducts(list.filter((product) => !product.featured));
+        featuredGrid.innerHTML = renderProductCards(featured);
+        productGrid.innerHTML = renderProductCards(normal);
+        featuredSection.hidden = featured.length === 0;
+        noResults.hidden = featured.length + normal.length > 0;
       };
 
       const renderCategories = () => {
@@ -1642,7 +1670,7 @@
           const matchesCategory = category === "all" || product.category === category;
           return matchesTerm && matchesCategory;
         });
-        renderProducts(filtered);
+        renderCatalog(filtered);
       };
 
       const addToCart = (productId, delta, color, keyOverride) => {
@@ -1834,7 +1862,7 @@
         }
       };
 
-      productGrid.addEventListener("click", (event) => {
+      catalogContainer.addEventListener("click", (event) => {
         const addButton = event.target.closest("[data-add]");
         if (addButton) {
           addToCart(addButton.dataset.add, 1);
@@ -1851,7 +1879,7 @@
         }
       });
 
-      productGrid.addEventListener("keydown", (event) => {
+      catalogContainer.addEventListener("keydown", (event) => {
         if (event.key !== "Enter" && event.key !== " ") return;
         if (event.target.closest("button")) return;
         const card = event.target.closest(".product-card");
@@ -1989,7 +2017,7 @@
       });
 
       renderCategories();
-      renderProducts(products);
+      renderCatalog(products);
       loadState();
       renderCart();
     </script>
