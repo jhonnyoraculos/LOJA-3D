@@ -473,6 +473,18 @@
         font-size: 0.85rem;
       }
 
+      .modal-colors {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .modal-label {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--muted);
+      }
+
       .modal-actions {
         margin-top: auto;
         display: flex;
@@ -684,6 +696,12 @@
         background: var(--chip);
         cursor: pointer;
         font-weight: 600;
+      }
+
+      .chip.active {
+        background: var(--accent);
+        color: #ffffff;
+        border-color: var(--accent);
       }
 
       .cta-buttons {
@@ -949,21 +967,15 @@
             />
           </div>
           <div class="field">
-            <label for="customerNotes">Observações (cor, prazo, entrega)</label>
+            <label for="customerNotes">Observações (prazo, entrega)</label>
             <textarea
               id="customerNotes"
               rows="3"
-              placeholder="Ex: preto, entrega semana que vem"
+              placeholder="Ex: entrega semana que vem"
               aria-label="Observações do pedido"
             ></textarea>
           </div>
           <div class="chips" id="quickChips">
-            <button class="chip" type="button" data-chip="Preto" aria-label="Adicionar Preto">
-              Preto
-            </button>
-            <button class="chip" type="button" data-chip="Branco" aria-label="Adicionar Branco">
-              Branco
-            </button>
             <button
               class="chip"
               type="button"
@@ -1015,6 +1027,10 @@
             <div class="modal-price" id="modalPrice"></div>
             <p class="modal-desc" id="modalDesc"></p>
             <ul class="modal-specs" id="modalSpecs"></ul>
+            <div class="modal-colors" id="modalColors" hidden>
+              <div class="modal-label">Cores disponíveis</div>
+              <div class="chips" id="modalColorChips"></div>
+            </div>
             <div class="modal-actions">
               <div class="qty-control" aria-label="Selecionar quantidade">
                 <button class="btn-icon" id="modalDec" aria-label="Diminuir quantidade">
@@ -1144,6 +1160,7 @@
             "Suporte para controles remotos com 3 compartimentos. Disponível nas cores branca e preta.",
           category: "Suportes",
           customizable: false,
+          colors: ["Preto", "Branco"],
           specs: {
             dimensoes: "16 x 5 x 8 cm (aprox.)",
             tempo: "A confirmar",
@@ -1202,6 +1219,8 @@
       const modalDesc = document.getElementById("modalDesc");
       const modalSpecs = document.getElementById("modalSpecs");
       const modalBadges = document.getElementById("modalBadges");
+      const modalColors = document.getElementById("modalColors");
+      const modalColorChips = document.getElementById("modalColorChips");
       const modalQty = document.getElementById("modalQty");
       const modalDec = document.getElementById("modalDec");
       const modalInc = document.getElementById("modalInc");
@@ -1213,12 +1232,33 @@
       let activeProduct = null;
       let activeImages = [];
       let modalQtyValue = 1;
+      let modalSelectedColor = "";
 
       const formatCurrency = (value) =>
         new Intl.NumberFormat("pt-BR", {
           style: "currency",
           currency: CURRENCY,
         }).format(value);
+
+      const makeCartKey = (productId, color) =>
+        color ? `${productId}::${color}` : productId;
+
+      const normalizeCartEntry = (key, value) => {
+        if (typeof value === "number") {
+          return { key, id: key, qty: value, color: null };
+        }
+        if (value && typeof value === "object") {
+          const id = value.id || key.split("::")[0];
+          const colorFromKey = key.includes("::") ? key.split("::")[1] : null;
+          const color = value.color || colorFromKey || null;
+          const qty = Number(value.qty) || 0;
+          return { key, id, qty, color };
+        }
+        return { key, id: key, qty: 0, color: null };
+      };
+
+      const getProductById = (productId) =>
+        products.find((product) => product.id === productId);
 
       const isFlexiblePrice = (product) =>
         typeof product.price !== "number" || Number.isNaN(product.price);
@@ -1279,7 +1319,15 @@
       };
 
       const getCartCount = () =>
-        Object.values(state.cart).reduce((sum, qty) => sum + qty, 0);
+        Object.values(state.cart).reduce((sum, value) => {
+          if (typeof value === "number") {
+            return sum + value;
+          }
+          if (value && typeof value === "object") {
+            return sum + (Number(value.qty) || 0);
+          }
+          return sum;
+        }, 0);
 
       const renderProducts = (list) => {
         if (list.length === 0) {
@@ -1362,11 +1410,12 @@
         let total = 0;
         let hasFlexible = false;
         cartItems.innerHTML = entries
-          .map(([id, qty]) => {
-            const product = products.find((item) => item.id === id);
-            if (!product) return "";
+          .map(([key, value]) => {
+            const entry = normalizeCartEntry(key, value);
+            const product = getProductById(entry.id);
+            if (!product || entry.qty <= 0) return "";
             const flexible = isFlexiblePrice(product);
-            const subtotal = flexible ? 0 : product.price * qty;
+            const subtotal = flexible ? 0 : product.price * entry.qty;
             const unitLabel = flexible ? "A combinar" : formatCurrency(product.price);
             const subtotalLabel = flexible ? "A combinar" : formatCurrency(subtotal);
             if (flexible) {
@@ -1374,6 +1423,7 @@
             } else {
               total += subtotal;
             }
+            const colorLabel = entry.color ? ` • Cor: ${entry.color}` : "";
             return `
             <div class="cart-item">
               <img src="${product.image}" alt="Imagem do produto ${product.name}" />
@@ -1381,14 +1431,14 @@
                 <div class="cart-item-top">
                   <div>
                     <h4>${product.name}</h4>
-                    <div class="cart-item-price">Unitário: ${unitLabel}</div>
+                    <div class="cart-item-price">Unitário: ${unitLabel}${colorLabel}</div>
                   </div>
                   <div class="cart-item-subtotal">${subtotalLabel}</div>
                 </div>
                 <div class="cart-item-actions">
-                  <button class="btn-icon" data-dec="${product.id}" aria-label="Diminuir ${product.name}">-</button>
-                  <strong>${qty}</strong>
-                  <button class="btn-icon" data-inc="${product.id}" aria-label="Aumentar ${product.name}">+</button>
+                  <button class="btn-icon" data-dec="${entry.key}" aria-label="Diminuir ${product.name}">-</button>
+                  <strong>${entry.qty}</strong>
+                  <button class="btn-icon" data-inc="${entry.key}" aria-label="Aumentar ${product.name}">+</button>
                 </div>
               </div>
             </div>
@@ -1428,6 +1478,23 @@
           <li><strong>Dimensões:</strong> ${product.specs.dimensoes}</li>
           <li><strong>Tempo de impressão:</strong> ${product.specs.tempo}</li>
         `;
+        if (product.colors && product.colors.length) {
+          modalColors.hidden = false;
+          modalColorChips.innerHTML = product.colors
+            .map(
+              (color, index) => `
+            <button class="chip${index === 0 ? " active" : ""}" type="button" data-color="${color}" aria-label="Selecionar cor ${color}">
+              ${color}
+            </button>
+          `
+            )
+            .join("");
+          modalSelectedColor = product.colors[0];
+        } else {
+          modalColors.hidden = true;
+          modalColorChips.innerHTML = "";
+          modalSelectedColor = "";
+        }
         activeImages = product.images && product.images.length ? product.images : [product.image];
         modalMainImage.src = activeImages[0];
         modalMainImage.alt = `Imagem do produto ${product.name}`;
@@ -1491,14 +1558,23 @@
         renderProducts(filtered);
       };
 
-      const addToCart = (productId, delta) => {
-        const current = state.cart[productId] || 0;
+      const addToCart = (productId, delta, color, keyOverride) => {
+        const product = getProductById(productId);
+        if (product && product.colors && product.colors.length && !color && !keyOverride) {
+          showToast("Escolha a cor nos detalhes");
+          openModal(productId);
+          return;
+        }
+        const key = keyOverride || makeCartKey(productId, color);
+        const entry = normalizeCartEntry(key, state.cart[key]);
+        const current = entry.qty;
         const next = current + delta;
         if (next <= 0) {
-          delete state.cart[productId];
+          delete state.cart[key];
           showToast("Removido do carrinho");
         } else {
-          state.cart[productId] = next;
+          const finalColor = color || entry.color || null;
+          state.cart[key] = { id: productId, qty: next, color: finalColor };
           if (delta > 0 && current === 0) {
             showToast("Adicionado ao carrinho");
           } else {
@@ -1508,6 +1584,12 @@
         saveState();
         renderCart();
         bumpCart();
+      };
+
+      const adjustCartByKey = (key, delta) => {
+        const entry = normalizeCartEntry(key, state.cart[key]);
+        if (!entry || !entry.id) return;
+        addToCart(entry.id, delta, entry.color, key);
       };
 
       const clearCart = () => {
@@ -1559,19 +1641,21 @@
         lines.push("Itens:");
         let total = 0;
         let hasFlexible = false;
-        entries.forEach(([id, qty]) => {
-          const product = products.find((item) => item.id === id);
+        entries.forEach(([key, value]) => {
+          const entry = normalizeCartEntry(key, value);
+          const product = getProductById(entry.id);
           if (!product) return;
+          const colorLabel = entry.color ? ` (Cor: ${entry.color})` : "";
           const flexible = isFlexiblePrice(product);
           if (flexible) {
             hasFlexible = true;
-            lines.push(`- ${qty}x ${product.name} (A combinar)`);
+            lines.push(`- ${entry.qty}x ${product.name}${colorLabel} (A combinar)`);
             return;
           }
-          const subtotal = product.price * qty;
+          const subtotal = product.price * entry.qty;
           total += subtotal;
           lines.push(
-            `- ${qty}x ${product.name} (${formatCurrency(
+            `- ${entry.qty}x ${product.name}${colorLabel} (${formatCurrency(
               product.price
             )}) = ${formatCurrency(subtotal)}`
           );
@@ -1702,6 +1786,16 @@
         thumb.classList.add("active");
       });
 
+      modalColorChips.addEventListener("click", (event) => {
+        const chip = event.target.closest("[data-color]");
+        if (!chip) return;
+        modalSelectedColor = chip.dataset.color;
+        modalColorChips.querySelectorAll(".chip").forEach((button) => {
+          button.classList.remove("active");
+        });
+        chip.classList.add("active");
+      });
+
       modalMainImage.addEventListener("click", () => {
         if (!modalMainImage.src) return;
         openLightbox(modalMainImage.src, modalMainImage.alt);
@@ -1720,7 +1814,11 @@
 
       modalAddBtn.addEventListener("click", () => {
         if (!activeProduct) return;
-        addToCart(activeProduct.id, modalQtyValue);
+        const color =
+          activeProduct.colors && activeProduct.colors.length
+            ? modalSelectedColor
+            : null;
+        addToCart(activeProduct.id, modalQtyValue, color);
       });
 
       modalClose.addEventListener("click", closeModal);
@@ -1741,10 +1839,10 @@
         const incButton = event.target.closest("[data-inc]");
         const decButton = event.target.closest("[data-dec]");
         if (incButton) {
-          addToCart(incButton.dataset.inc, 1);
+          adjustCartByKey(incButton.dataset.inc, 1);
         }
         if (decButton) {
-          addToCart(decButton.dataset.dec, -1);
+          adjustCartByKey(decButton.dataset.dec, -1);
         }
       });
 
