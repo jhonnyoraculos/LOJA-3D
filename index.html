@@ -209,11 +209,21 @@
         flex-direction: column;
         min-height: 100%;
         cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
       }
 
       .product-card:focus {
         outline: 2px solid rgba(241, 89, 42, 0.6);
         outline-offset: 2px;
+      }
+
+      .product-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 24px 44px rgba(11, 16, 33, 0.22);
+      }
+
+      .product-card:active {
+        transform: translateY(-2px) scale(0.995);
       }
 
       .product-image {
@@ -301,6 +311,10 @@
         font-weight: 700;
         cursor: pointer;
         transition: transform 0.15s ease, box-shadow 0.15s ease;
+      }
+
+      .btn:hover {
+        transform: translateY(-1px);
       }
 
       .btn-primary {
@@ -422,6 +436,11 @@
         padding: 0;
         background: transparent;
         cursor: pointer;
+        transition: transform 0.2s ease, border-color 0.2s ease;
+      }
+
+      .modal-thumb:hover {
+        transform: translateY(-2px);
       }
 
       .modal-thumb img {
@@ -434,6 +453,19 @@
 
       .modal-thumb.active {
         border-color: var(--accent);
+      }
+
+      .reveal {
+        opacity: 0;
+        transform: translateY(14px) scale(0.99);
+        transition: opacity 0.45s ease, transform 0.45s ease;
+        transition-delay: var(--reveal-delay, 0ms);
+        will-change: opacity, transform;
+      }
+
+      .reveal.is-visible {
+        opacity: 1;
+        transform: translateY(0) scale(1);
       }
 
       .modal-info {
@@ -683,12 +715,12 @@
       }
 
       .total-discounted {
-        color: var(--accent);
+        color: #1e8f3b;
         font-weight: 700;
       }
 
       .discount-line {
-        color: var(--accent);
+        color: #1e8f3b;
         font-size: 0.9rem;
       }
 
@@ -926,6 +958,15 @@
           display: inline-flex;
         }
       }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation-duration: 0.001ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.001ms !important;
+          scroll-behavior: auto !important;
+        }
+      }
     </style>
   </head>
   <body>
@@ -958,16 +999,20 @@
         </div>
       </div>
     </header>
-    <div class="delivery-note" role="note">Entrega grátis em: São Gonçalo do Pará - MG</div>
-    <div class="promo-note" role="note">Desconto progressivo: 2 itens = 2%, 3 itens = 5%, 6 itens = 7%</div>
+    <div class="delivery-note reveal" style="--reveal-delay: 40ms" role="note">
+      Entrega grátis em: São Gonçalo do Pará - MG
+    </div>
+    <div class="promo-note reveal" style="--reveal-delay: 80ms" role="note">
+      Desconto progressivo: 2 itens = 2%, 3 itens = 5%, 6 itens = 7%
+    </div>
 
     <main class="content" id="catalogo">
       <section id="featuredSection">
-        <div class="section-title">Destaques do catálogo</div>
+        <div class="section-title reveal" style="--reveal-delay: 0ms">Destaques do catálogo</div>
         <div id="featuredGrid" class="product-grid"></div>
       </section>
       <section>
-        <div class="section-title">Catálogo completo</div>
+        <div class="section-title reveal" style="--reveal-delay: 0ms">Catálogo completo</div>
         <div id="productGrid" class="product-grid"></div>
         <div id="noResults" class="no-results" hidden>
           Nenhum produto encontrado. Ajuste a busca ou o filtro.
@@ -1561,8 +1606,8 @@
       const renderProductCards = (list) =>
         list
           .map(
-            (product) => `
-          <article class="product-card" data-id="${product.id}" tabindex="0" aria-label="Ver detalhes de ${product.name}">
+            (product, index) => `
+          <article class="product-card reveal" style="--reveal-delay: ${Math.min(index, 6) * 60}ms" data-id="${product.id}" tabindex="0" aria-label="Ver detalhes de ${product.name}">
             <div class="product-image">
               <img src="${product.image}" alt="Imagem do produto ${product.name}" />
               <div class="product-badges">
@@ -1598,6 +1643,36 @@
           )
           .join("");
 
+      let revealObserver = null;
+
+      const getRevealObserver = () => {
+        if (revealObserver) return revealObserver;
+        revealObserver = new IntersectionObserver(
+          (entries, observer) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                entry.target.classList.add("is-visible");
+                observer.unobserve(entry.target);
+              }
+            });
+          },
+          { threshold: 0.12 }
+        );
+        return revealObserver;
+      };
+
+      const observeReveals = (root = document) => {
+        const observer = getRevealObserver();
+        root.querySelectorAll(".reveal").forEach((el, index) => {
+          if (el.dataset.revealBound === "true") return;
+          el.dataset.revealBound = "true";
+          if (!el.style.getPropertyValue("--reveal-delay")) {
+            el.style.setProperty("--reveal-delay", `${Math.min(index, 6) * 50}ms`);
+          }
+          observer.observe(el);
+        });
+      };
+
       const orderFeatured = (list) =>
         list
           .slice()
@@ -1613,6 +1688,7 @@
         productGrid.innerHTML = renderProductCards(normal);
         featuredSection.hidden = featured.length === 0;
         noResults.hidden = featured.length + normal.length > 0;
+        observeReveals(document);
       };
 
       const renderCategories = () => {
