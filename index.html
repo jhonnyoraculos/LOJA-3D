@@ -666,6 +666,27 @@
         font-weight: 700;
       }
 
+      .total-line {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .total-values {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .total-discounted {
+        color: var(--accent);
+        font-weight: 700;
+      }
+
       .discount-line {
         color: var(--accent);
         font-size: 0.9rem;
@@ -990,7 +1011,13 @@
         </div>
         <div id="cartItems" class="cart-items"></div>
         <div class="cart-summary">
-          <div>Total: <span id="cartTotal">R$ 0,00</span></div>
+          <div class="total-line">
+            <span>Total:</span>
+            <span class="total-values">
+              <span id="cartTotal">R$ 0,00</span>
+              <span id="cartTotalDiscounted" class="total-discounted" hidden></span>
+            </span>
+          </div>
           <div class="discount-line" id="cartDiscount" hidden>
             <span id="cartDiscountLabel">Desconto (2%): </span
             ><span id="cartDiscountValue">R$ 0,00</span>
@@ -1373,6 +1400,7 @@
       const cartItems = document.getElementById("cartItems");
       const cartEmpty = document.getElementById("cartEmpty");
       const cartTotal = document.getElementById("cartTotal");
+      const cartTotalDiscounted = document.getElementById("cartTotalDiscounted");
       const cartDiscount = document.getElementById("cartDiscount");
       const cartDiscountLabel = document.getElementById("cartDiscountLabel");
       const cartDiscountValue = document.getElementById("cartDiscountValue");
@@ -1610,6 +1638,8 @@
           cartItems.innerHTML = "";
           cartEmpty.style.display = "flex";
           cartTotal.textContent = formatCurrency(0);
+          cartTotalDiscounted.hidden = true;
+          cartTotalDiscounted.textContent = "";
           cartDiscount.hidden = true;
           cartDiscountInfo.hidden = true;
           finalizeBtn.disabled = true;
@@ -1661,18 +1691,24 @@
         const discountEligible = discountRate > 0 && total > 0;
         const discount = discountEligible ? total * discountRate : 0;
         const totalAfterDiscount = total - discount;
-        let totalLabel = formatCurrency(totalAfterDiscount);
+        let totalLabel = formatCurrency(total);
+        let totalDiscountLabel = formatCurrency(totalAfterDiscount);
         if (hasFlexible) {
-          totalLabel =
-            totalAfterDiscount > 0 ? `${totalLabel} + a combinar` : "A combinar";
+          totalLabel = total > 0 ? `${totalLabel} + a combinar` : "A combinar";
+          totalDiscountLabel =
+            totalAfterDiscount > 0 ? `${totalDiscountLabel} + a combinar` : "A combinar";
         }
         cartTotal.textContent = totalLabel;
         if (discountEligible) {
+          cartTotalDiscounted.textContent = `Com desconto: ${totalDiscountLabel}`;
+          cartTotalDiscounted.hidden = false;
           cartDiscountValue.textContent = `-${formatCurrency(discount)}`;
           cartDiscountLabel.textContent = `Desconto (${Math.round(discountRate * 100)}%): `;
           cartDiscount.hidden = false;
         } else {
           cartDiscount.hidden = true;
+          cartTotalDiscounted.hidden = true;
+          cartTotalDiscounted.textContent = "";
         }
         const nextTier = getNextDiscountTier(count);
         if (count < 2) {
